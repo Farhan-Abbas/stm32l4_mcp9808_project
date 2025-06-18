@@ -1,0 +1,15 @@
+[package]
+name = "rustymicrobit"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies.aux11]
+path = "auxiliary"
+
+[dependencies.stm32l4]
+version = "0.16.0"
+features = ["stm32l4r5"]
+
+[dependencies.heapless]
+default-features = false
+version = "0.8.0"

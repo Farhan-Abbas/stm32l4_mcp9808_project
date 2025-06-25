@@ -7,33 +7,39 @@ use stm32l4::stm32l4r5;
 
 #[entry]
 fn main() -> ! {
-    // Access peripherals
-    let pac = stm32l4r5::Peripherals::take().unwrap();
-    let rcc = pac.RCC;
-    let gpioa = pac.GPIOA;
-    let usart2 = pac.USART2;
+    let dp = stm32l4r5::Peripherals::take().unwrap();
+    let pwr = dp.PWR;
+    let rcc = dp.RCC;
+    let gpiog = dp.GPIOG;
+    let lpuart1 = dp.LPUART1;
 
-    // 1. Enable clocks
-    rcc.ahb2enr.modify(|_, w| w.gpioaen().set_bit());      // GPIOA
-    rcc.apb1enr1.modify(|_, w| w.usart2en().set_bit());    // USART2
+    // Enable power interface and VddIO2
+    rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
+    pwr.cr2.modify(|_, w| w.iosv().set_bit()); // Enable VddIO2
 
-    // 2. Set PA2 to alternate function mode (AF7 = USART2_TX)
-    gpioa.moder.modify(|_, w| w.moder2().alternate());     // Mode: AF
-    gpioa.otyper.modify(|_, w| w.ot2().clear_bit());       // Push-pull
-    gpioa.ospeedr.modify(|_, w| w.ospeedr2().very_high_speed()); // Optional: High speed
-    gpioa.afrl.modify(|_, w| w.afrl2().af7());             // AF7 = USART2
+    // Enable GPIOG and LPUART1 clocks
+    rcc.ahb2enr.modify(|_, w| w.gpiogen().set_bit());
+    rcc.apb1enr2.modify(|_, w| w.lpuart1en().set_bit());
 
-    // 3. Configure USART2: 9600 baud @ 16 MHz => BRR = 1667
-    usart2.brr.write(|w| unsafe { w.bits(1667) });
+    // Configure PG7 as AF8 (LPUART1_TX)
+    gpiog.moder.modify(|_, w| w.moder7().alternate());
+    gpiog.otyper.modify(|_, w| w.ot7().clear_bit());
+    gpiog.ospeedr.modify(|_, w| w.ospeedr7().very_high_speed());
+    gpiog.afrl.modify(|_, w| w.afrl7().af8()); // AF8 for LPUART1
 
-    // 4. Enable USART2 and TX
-    usart2.cr1.modify(|_, w| w.ue().set_bit().te().set_bit());
+    // Calculate BRR for 9600 baud at 4 MHz (MSI default)
+    // BRR = (256 * f_clk) / baudrate = (256 * 4_000_000) / 9600 = 106667
+    lpuart1.brr.write(|w| unsafe { w.bits(106667) });
 
-    loop {    // 5. Send message
-        let msg = b"Hello, world!\n";
+    // Enable LPUART1 and TX
+    lpuart1.cr1.modify(|_, w| w.ue().set_bit().te().set_bit());
+
+    // Send message
+    let msg = b"Hello from LPUART1 on PG7!\n";
+    loop {
         for &b in msg {
-            while usart2.isr.read().txe().bit_is_clear() {} // Wait for TXE (transmit buffer empty)
-            usart2.tdr.write(|w| unsafe { w.tdr().bits(b as u16) });
+            while lpuart1.isr.read().txe().bit_is_clear() {}
+            lpuart1.tdr.write(|w| unsafe { w.tdr().bits(b as u16) });
         }
     }
 }

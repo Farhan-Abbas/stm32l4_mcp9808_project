@@ -1,5 +1,10 @@
+# Specify the target architecture.
+# thumbv7em: ARM Cortex-M4
+# none: No Operating system (bare metal)
+# eabihf:: hard float ABI (your chips has FPU)
 [build]
 target = "thumbv7em-none-eabihf"
 
+# Linker script for the target. Without this, rust does not know where to put your code in memory.
 [target.thumbv7em-none-eabihf]
 rustflags = ["-C", "link-arg=-Tlink.x"]
